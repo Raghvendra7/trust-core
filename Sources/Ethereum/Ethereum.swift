@@ -16,7 +16,7 @@ open class Ethereum: Blockchain {
     }
 
     /// SLIP-044 coin type.
-    open override var coinType: Slip {
+    open override var coinType: SLIP.CoinType {
         return .ethereum
     }
 
@@ -38,7 +38,7 @@ public final class Go: Ethereum {
         return 60
     }
 
-    public override var coinType: Slip {
+    public override var coinType: SLIP.CoinType {
         return .go
     }
 }
@@ -48,7 +48,7 @@ public final class POA: Ethereum {
         return 99
     }
 
-    public override var coinType: Slip {
+    public override var coinType: SLIP.CoinType {
         return .poa
     }
 }
@@ -58,7 +58,7 @@ public final class Callisto: Ethereum {
         return 820
     }
 
-    public override var coinType: Slip {
+    public override var coinType: SLIP.CoinType {
         return .callisto
     }
 }
@@ -68,18 +68,8 @@ public final class EthereumClassic: Ethereum {
         return 61
     }
 
-    public override var coinType: Slip {
+    public override var coinType: SLIP.CoinType {
         return .ethereumClassic
-    }
-}
-
-public final class Wanchain: Ethereum {
-    public override var chainID: Int {
-        return 1
-    }
-
-    public override var coinType: Slip {
-        return .wanchain
     }
 }
 
@@ -88,7 +78,27 @@ public final class Vechain: Ethereum {
         return 74
     }
 
-    public override var coinType: Slip {
+    public override var coinType: SLIP.CoinType {
         return .vechain
+    }
+}
+
+public final class ThunderToken: Ethereum {
+    public override var chainID: Int {
+        return 18
+    }
+
+    public override var coinType: SLIP.CoinType {
+        return .thunderToken
+    }
+}
+
+public final class TomoChain: Ethereum {
+    public override var chainID: Int {
+        return 88
+    }
+
+    public override var coinType: SLIP.CoinType {
+        return .tomoChain
     }
 }

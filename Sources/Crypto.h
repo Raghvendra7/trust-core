@@ -16,6 +16,8 @@
 /// Extracts the compressed public key from a private key.
 + (nonnull NSData *)getCompressedPublicKeyFrom:(nonnull NSData *)privateKey NS_SWIFT_NAME(getCompressedPublicKey(from:));
 
++ (nonnull NSData *)getED25519PublicKey:(nonnull NSData *)privateKey NS_SWIFT_NAME(getED25519PublicKey(from:));
+
 /// Signs a hash with a private key.
 ///
 /// @param hash hash to sign
@@ -50,6 +52,15 @@
 /// Computes the Ethereum hash of a block of data (SHA3 Keccak 256 version).
 + (nonnull NSData *)hash:(nonnull NSData *)hash;
 
+/// Computes the SHA3-256 hash of the data.
++ (nonnull NSData *)sha3_256:(nonnull NSData *)hash;
+
+/// Computes the RIPEMD-160 hash of the data.
++ (nonnull NSData *)ripemd160:(nonnull NSData *)data;
+    
+/// Computes the SHA256 hash of the data.
++ (nonnull NSData *)sha256:(nonnull NSData *)data;
+
 /// Computes the SHA256 hash of the SHA256 hash of the data.
 + (nonnull NSData *)sha256sha256:(nonnull NSData *)data;
 
@@ -64,8 +75,32 @@
 /// Encodes data as a base 58 string, including the checksum.
 + (nonnull NSString *)base58Encode:(nonnull NSData *)data NS_SWIFT_NAME(base58Encode(_:));
 
+/// Encodes data as a base 58 string, without checksum.
++ (nonnull NSString *)base58EncodeRaw:(nonnull NSData *)data NS_SWIFT_NAME(base58EncodeRaw(_:));
+
 /// Decodes a base 58 string verifying the checksum.
 + (nullable NSData *)base58Decode:(nonnull NSString *)string NS_SWIFT_NAME(base58Decode(_:));
+
+/// Decodes a base 58 string, without verifying the checksum
++ (nullable NSData *)base58DecodeRaw:(nonnull NSString *)string NS_SWIFT_NAME(base58DecodeRaw(_:));
+
+// MARK: - Bech32
+
+/// Encodes data as a Bech32 string with hrp
++ (nonnull NSString *)bech32Encode:(nonnull NSData *)data hrp:(nonnull NSString *)hrp NS_SWIFT_NAME(bech32Encode(_:hrp:));
+
+/// Decodes a Bech32 string as data
+///
+/// @param string string to decode
+/// @param hrp string pointer contains human readable part if it's not nil
+/// @return decoded data
++ (nullable NSData *)bech32Decode:(nonnull NSString *)string hrp:(NSString * _Nullable *)hrp NS_SWIFT_NAME(bech32Decode(_:hrp:));
+
+/// Encodes data as a Bech32 string with hrp
++ (nonnull NSString *)cashAddrEncode:(nonnull NSData *)data hrp:(nonnull NSString *)hrp NS_SWIFT_NAME(cashAddrEncode(_:hrp:));
+
+/// Decodes a cashAddr string as data
++ (nullable NSData *)cashAddrDecode:(nonnull NSString *)string hrp:(NSString * _Nullable *)hrp NS_SWIFT_NAME(cashAddrDecode(_:hrp:));
 
 // MARK: - HDWallet
 

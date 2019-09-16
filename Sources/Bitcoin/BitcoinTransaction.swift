@@ -40,9 +40,12 @@ public struct BitcoinTransaction: BinaryEncoding {
     }
 
     public func encode(into data: inout Data) {
+        return encode(into: &data, encodeWitness: hasWitness)
+    }
+
+    public func encode(into data: inout Data, encodeWitness: Bool) {
         version.encode(into: &data)
 
-        let encodeWitness = hasWitness
         if encodeWitness {
             // Use extended format in case witnesses are to be serialized.
             let vinDummy = [BitcoinTransactionInput]()
@@ -55,7 +58,7 @@ public struct BitcoinTransaction: BinaryEncoding {
 
         if encodeWitness {
             for input in inputs {
-                input.scriptWitness.stack.encode(into: &data)
+                input.scriptWitness.encode(into: &data)
             }
         }
 
@@ -64,12 +67,22 @@ public struct BitcoinTransaction: BinaryEncoding {
 
     public var hash: Data {
         var data = Data()
+        encode(into: &data, encodeWitness: false)
+        return Crypto.sha256sha256(data)
+    }
+
+    public var witnessHash: Data {
+        var data = Data()
         encode(into: &data)
         return Crypto.sha256sha256(data)
     }
 
-    public var identifier: String {
+    public var transactionId: String {
         return Data(hash.reversed()).hexString
+    }
+
+    public var witnessId: String {
+        return Data(witnessHash.reversed()).hexString
     }
 }
 
@@ -111,6 +124,7 @@ public struct BitcoinOutPoint: BinaryEncoding, Equatable {
     public var index: UInt32
 
     public init(hash: Data, index: UInt32) {
+        precondition(hash.count == 32)
         self.hash = hash
         self.index = index
     }
@@ -134,16 +148,26 @@ public struct BitcoinOutPoint: BinaryEncoding, Equatable {
     }
 }
 
-public final class BitcoinTransactionOutput: BinaryEncoding {
+public final class BitcoinTransactionOutput: BinaryEncoding, Equatable {
     /// Transaction Value
     public var value: Int64
 
     /// Usually contains the public key as a Bitcoin script setting up conditions to claim this output.
     public var script: BitcoinScript
 
+    public static func == (lhs: BitcoinTransactionOutput, rhs: BitcoinTransactionOutput) -> Bool {
+        return lhs.value == rhs.value && lhs.script.bytes == rhs.script.bytes
+    }
+
     public init() {
         value = -1
         script = BitcoinScript(bytes: [])
+    }
+
+    /// Builds an output with a P2PKH script.
+    public init(payToPublicKeyHash address: BitcoinAddress, amount: Int64) {
+        value = amount
+        script = BitcoinScript.buildPayToPublicKeyHash(address: address)
     }
 
     public var isNull: Bool {
@@ -161,7 +185,7 @@ public final class BitcoinTransactionOutput: BinaryEncoding {
     }
 }
 
-public struct BitcoinScriptWitness: CustomStringConvertible {
+public struct BitcoinScriptWitness: CustomStringConvertible, BinaryEncoding {
     public var stack = [Data]()
 
     public init() {}
@@ -171,6 +195,15 @@ public struct BitcoinScriptWitness: CustomStringConvertible {
     }
 
     public var description: String {
-        return "ScriptWitness(" + stack.map({ $0.hexString }).joined(separator: ", ") + ")"
+
+        return "ScriptWitness(" + stack.map({ var data = Data(); $0.encode(into: &data); return data.hexString }).joined(separator: ", ") + ")"
+    }
+
+    public func encode(into data: inout Data) {
+        writeCompactSize(stack.count, into: &data)
+        for item in stack {
+            writeCompactSize(item.count, into: &data)
+            item.encode(into: &data)
+        }
     }
 }

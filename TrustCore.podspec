@@ -8,7 +8,7 @@ Pod::Spec.new do |s|
 
   s.ios.deployment_target = '10.0'
   s.osx.deployment_target = '10.12'
-  s.swift_version = '4.0'
+  s.swift_version = '4.2'
 
   s.source       = { git: 'https://github.com/TrustWallet/trust-core.git', tag: s.version }
   s.source_files = 'Sources/**/*.{swift,h,m}'
@@ -16,6 +16,7 @@ Pod::Spec.new do |s|
 
   s.dependency 'BigInt'
   s.dependency 'TrezorCrypto', '~> 0.0.8'
+  s.dependency 'SwiftProtobuf', '~> 1.0'
 
   s.pod_target_xcconfig = { 'SWIFT_OPTIMIZATION_LEVEL' => '-Owholemodule' }
 end

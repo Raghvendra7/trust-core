@@ -61,6 +61,11 @@ class CryptoTests: XCTestCase {
         XCTAssertEqual(Crypto.getCompressedPublicKey(from: privateKey).hexString, "0332d87c5cd4b31d81c5b010af42a2e413af253dc3a91bd3d53c6b2c45291c3de7")
     }
 
+    func testGetED25519PublicKey() {
+        let privateKey = Data(hexString: "0xca2327b0c60dc5573825fc16ac3accdb3009d1eda6b46f78212cfad0726483dbe77ba23bc030cbca2fa5c3cee25ea4ae851e947a1d4d0e54fe9ccced9f339b19")!
+        XCTAssertEqual(Crypto.getED25519PublicKey(from: privateKey).hexString, "e77ba23bc030cbca2fa5c3cee25ea4ae851e947a1d4d0e54fe9ccced9f339b19")
+    }
+
     func testDeriveSeed() {
         let mnemonic = "often tobacco bread scare imitate song kind common bar forest yard wisdom"
         let passphrase = "testtest123"
@@ -86,6 +91,14 @@ class CryptoTests: XCTestCase {
         XCTAssertFalse(Crypto.isValid(mnemonic: mnemonic))
     }
 
+    func testSha3_256() {
+        let fill1Data = Crypto.sha3_256(Data(hexString: "0x616263")!)
+        XCTAssertEqual("3a985da74fe225b2045c172d6bd390bd855f086e3e9d525b46bfe24511431532", fill1Data.hexString)
+
+        let fill2Data = Crypto.sha3_256(Data(hexString: "0x31")!)
+        XCTAssertEqual("67b176705b46206614219f47a05aee7ae6a3edbe850bbbe214c536b989aea4d2", fill2Data.hexString)
+    }
+
     func testBlake2b256() {
         let emptyData = Crypto.blake2b256(Data())
 
@@ -98,5 +111,64 @@ class CryptoTests: XCTestCase {
         let fill2Data = Crypto.blake2b256(Data(hexString: "0x31")!)
 
         XCTAssertEqual("92cdf578c47085a5992256f0dcf97d0b19f1f1c9de4d5fe30c3ace6191b6e5db", fill2Data.hexString)
+    }
+
+    func testBech32Encoding() {
+        var hrp: NSString?
+        var data = Crypto.bech32Decode("tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx", hrp: &hrp)!
+        XCTAssertEqual(data.hexString, "000e140f070d1a001912060b0d081504140311021d030c1d03040f1814060e1e16")
+        XCTAssertEqual(hrp!, "tb")
+
+        data = Crypto.bech32Decode("bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4", hrp: &hrp)!
+        XCTAssertEqual(data.hexString, "000e140f070d1a001912060b0d081504140311021d030c1d03040f1814060e1e16")
+        XCTAssertEqual(hrp!, "bc")
+
+        XCTAssertNotNil(Crypto.bech32Decode("bc1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qccfmv3", hrp: nil))
+
+        for invalid in [
+            " 1nwldj5",
+            "de1lg7wt\u{ff}",
+            "an84characterslonghumanreadablepartthatcontainsthenumber1andtheexcludedcharactersbio1569pvx",
+        ] {
+            var hrp: NSString?
+            XCTAssertNil(Crypto.bech32Decode(invalid, hrp: &hrp))
+            XCTAssertNil(hrp)
+        }
+
+        for valid in [
+            "A12UEL5L",
+            "split1checkupstagehandshakeupstreamerranterredcaperred2y9e3w",
+            "11qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqc8247j",
+        ] {
+            let index = valid.range(of: "1", options: .backwards)!.lowerBound
+            let expected = String(valid[..<index]).lowercased()
+            var hrp: NSString?
+            let data = Crypto.bech32Decode(valid, hrp: &hrp)
+            XCTAssertNotNil(data)
+            XCTAssertEqual(expected, hrp! as String)
+
+            let rebuilt = Crypto.bech32Encode(data!, hrp: expected)
+            XCTAssertEqual(rebuilt, valid.lowercased())
+        }
+    }
+
+    func testCashAddrEncoding() {
+        for valid in [
+            "prefix:x64nx6hz",
+            "p:gpf8m4h7",
+            "bitcoincash:qpzry9x8gf2tvdw0s3jn54khce6mua7lcw20ayyn",
+            "bchtest:testnetaddress4d6njnut",
+            "bchreg:555555555555555555555555555555555555555555555udxmlmrz",
+        ] {
+            let index = valid.range(of: ":", options: .backwards)!.lowerBound
+            let expected = String(valid[..<index]).lowercased()
+            var hrp: NSString?
+            let data = Crypto.cashAddrDecode(valid, hrp: &hrp)
+            XCTAssertNotNil(data)
+            XCTAssertEqual(expected, hrp! as String)
+
+            let rebuilt = Crypto.cashAddrEncode(data!, hrp: expected)
+            XCTAssertEqual(rebuilt, valid.lowercased())
+        }
     }
 }

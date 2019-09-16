@@ -10,61 +10,146 @@ import Foundation
 ///
 /// Bitcoin-based blockchains should inherit from this class.
 open class Bitcoin: Blockchain {
+
+    convenience public init(purpose: Purpose = .bip84, network: SLIP.Network) {
+        self.init(purpose: purpose)
+        self.network = network
+    }
+
+    open var network: SLIP.Network = .main
+
     /// SLIP-044 coin type.
-    override open var coinType: Slip {
+    override open var coinType: SLIP.CoinType {
         return .bitcoin
     }
 
+    override open var xpubVersion: SLIP.HDVersion? {
+        switch self.coinPurpose {
+        case .bip44:
+            return SLIP.HDVersion.xpub
+        case .bip49:
+            return SLIP.HDVersion.ypub
+        case .bip84:
+            return SLIP.HDVersion.zpub
+        }
+    }
+
+    override open var xprvVersion: SLIP.HDVersion? {
+        switch self.coinPurpose {
+        case .bip44:
+            return SLIP.HDVersion.xprv
+        case .bip49:
+            return SLIP.HDVersion.yprv
+        case .bip84:
+            return SLIP.HDVersion.zprv
+        }
+    }
+
     /// Public key hash address prefix.
-    open var publicKeyHashAddressPrefix: UInt8 {
-        return 0x00
+    ///
+    /// - SeeAlso: https://en.bitcoin.it/wiki/List_of_address_prefixes
+    open var p2pkhPrefix: UInt8 {
+        switch network {
+        case .main:
+            return 0x00
+        case .test:
+            return 0x6f
+        }
     }
 
     /// Private key prefix.
-    open var privateKeyPrefix: UInt8 { return 0x80 }
+    ///
+    /// - SeeAlso: https://en.bitcoin.it/wiki/List_of_address_prefixes
+    open var privateKeyPrefix: UInt8 {
+        switch network {
+        case .main:
+            return 0x80
+        case .test:
+            return 0xef
+        }
+    }
 
     /// Pay to script hash (P2SH) address prefix.
-    open var payToScriptHashAddressPrefix: UInt8 {
-        return 0x05
+    ///
+    /// - SeeAlso: https://en.bitcoin.it/wiki/List_of_address_prefixes
+    open var p2shPrefix: UInt8 {
+        switch network {
+        case .main:
+            return 0x05
+        case .test:
+            return 0xc4
+        }
     }
 
-    open override func address(for publicKey: PublicKey) -> Address {
-        return publicKey.bitcoinAddress(prefix: payToScriptHashAddressPrefix)
+    open var hrp: SLIP.HRP {
+        switch network {
+        case .main:
+            return .bitcoin
+        case .test:
+            return .bitcoinTest
+        }
     }
 
-    open override func address(string: String) -> Address? {
+    open var supportSegwit: Bool {
+        return true
+    }
+
+    override open func address(for publicKey: PublicKey) -> Address {
+        switch coinPurpose {
+        case .bip44:
+            return publicKey.legacyBitcoinAddress(prefix: p2pkhPrefix)
+        case .bip49:
+            return publicKey.compatibleBitcoinAddress(prefix: p2shPrefix)
+        case .bip84:
+            return publicKey.compressed.bech32Address(hrp: hrp)
+        }
+    }
+
+    override open func address(string: String) -> Address? {
+        if let bech32Address = BitcoinBech32Address(string: string) {
+            return bech32Address
+        } else {
+            return BitcoinAddress(string: string)
+        }
+    }
+
+    override open func address(data: Data) -> Address? {
+        if let bech32Address = BitcoinBech32Address(data: data, hrp: hrp.rawValue) {
+            return bech32Address
+        } else {
+            return BitcoinAddress(data: data)
+        }
+    }
+
+    override public init(purpose: Purpose = .bip84) {
+        super.init(purpose: purpose)
+    }
+
+    open func compatibleAddress(for publicKey: PublicKey) -> Address {
+        return publicKey.compressed.compatibleBitcoinAddress(prefix: p2shPrefix)
+    }
+
+    open func compatibleAddress(string: String) -> Address? {
         return BitcoinAddress(string: string)
     }
 
-    open override func address(data: Data) -> Address? {
+    open func compatibleAddress(data: Data) -> Address? {
         return BitcoinAddress(data: data)
     }
-}
 
-public final class Litecoin: Bitcoin {
-    public override var coinType: Slip {
-        return .litecoin
+    open func legacyAddress(for publicKey: PublicKey) -> Address {
+        return publicKey.compressed.legacyBitcoinAddress(prefix: p2pkhPrefix)
     }
 
-    public override var payToScriptHashAddressPrefix: UInt8 {
-        return 0x32
+    open func legacyAddress(string: String) -> Address? {
+        return BitcoinAddress(string: string)
     }
-}
 
-public final class Tron: Bitcoin {
-    public override var coinType: Slip {
-        return .tron
+    open func legacyAddress(data: Data) -> Address? {
+        return BitcoinAddress(data: data)
     }
-    public override var payToScriptHashAddressPrefix: UInt8 {
-        return 0x41
-    }
-}
 
-public final class Dash: Bitcoin {
-    public override var coinType: Slip {
-        return .dash
-    }
-    public override var payToScriptHashAddressPrefix: UInt8 {
-        return 0x4C
+    override public func derivationPath(account: Int = 0, change: Int = 0, at index: Int) -> DerivationPath {
+        return DerivationPath(purpose: coinPurpose.rawValue, coinType: network == .main ? coinType.rawValue : network.rawValue, account: account, change: change, address: index)
     }
 }

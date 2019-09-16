@@ -23,6 +23,12 @@
     return publicKey;
 }
 
++ (nonnull NSData *)getED25519PublicKey:(nonnull NSData *)privateKey {
+    NSMutableData *publicKey = [[NSMutableData alloc] initWithLength:32];
+    ed25519_publickey(privateKey.bytes, publicKey.mutableBytes);
+    return publicKey;
+}
+
 + (nonnull NSData *)signHash:(nonnull NSData *)hash privateKey:(nonnull NSData *)privateKey {
     NSMutableData *signature = [[NSMutableData alloc] initWithLength:65];
     uint8_t by = 0;
@@ -52,7 +58,7 @@
     if (v >= 27) {
         v -= 27;
     }
-    if (ecdsa_verify_digest_recover(&secp256k1, pubkey, bytes, message.bytes, v) != 0) {
+    if (ecdsa_recover_pub_from_sig(&secp256k1, pubkey, bytes, message.bytes, v) != 0) {
         return nil;
     }
     return [NSData dataWithBytes:pubkey length:65];
@@ -63,6 +69,12 @@
 + (nonnull NSData *)hash:(nonnull NSData *)hash {
     NSMutableData *output = [[NSMutableData alloc] initWithLength:sha3_256_hash_size];
     keccak_256(hash.bytes, hash.length, output.mutableBytes);
+    return output;
+}
+
++ (nonnull NSData *)sha3_256:(nonnull NSData *)hash {
+    NSMutableData *output = [[NSMutableData alloc] initWithLength:sha3_256_hash_size];
+    sha3_256(hash.bytes, hash.length, output.mutableBytes);
     return output;
 }
 
@@ -105,6 +117,16 @@
     return [[NSString alloc] initWithBytesNoCopy:cstring length:size - 1 encoding:NSUTF8StringEncoding freeWhenDone:YES];
 }
 
++ (nonnull NSString *)base58EncodeRaw:(nonnull NSData *)data {
+    size_t size = 0;
+    b58enc(nil, &size, data.bytes, data.length);
+    char *cstring = malloc(size);
+    if (!b58enc(cstring, &size, data.bytes, data.length)) {
+        return @"";
+    };
+    return [[NSString alloc] initWithBytesNoCopy:cstring length:size - 1 encoding:NSUTF8StringEncoding freeWhenDone:YES];
+}
+
 + (NSData *)base58Decode:(nonnull NSString *)string {
     const char *str = [string cStringUsingEncoding:NSUTF8StringEncoding];
 
@@ -118,6 +140,62 @@
 
     [result setLength:size];
     return result;
+}
+
++ (nullable NSData *)base58DecodeRaw:(nonnull NSString *)string
+{
+    const char *str = [string cStringUsingEncoding:NSUTF8StringEncoding];
+    size_t len = 128;
+    size_t res = len;
+    uint8_t buff[len];
+    if (b58tobin(buff, &res, str) != true) {
+        return nil;
+    }
+    return [[NSData alloc] initWithBytes:buff + len - res length:res];
+}
+
+// MARK: - Bech32
+
++ (nonnull NSString *)bech32Encode:(nonnull NSData *)data hrp:(nonnull NSString *)hrp
+{
+    NSMutableData *result = [[NSMutableData alloc] initWithCapacity:89];
+    bech32_encode(result.mutableBytes, hrp.UTF8String, data.bytes, data.length);
+    return [NSString stringWithUTF8String:result.bytes];
+}
+
++ (nullable NSData *)bech32Decode:(nonnull NSString *)string hrp:(NSString * _Nullable *)hrp
+{
+    uint8_t data[82];
+    char hrpBuf[21];
+    size_t dataLen;
+    if (1 != bech32_decode(hrpBuf, data, &dataLen, string.UTF8String)) {
+        return nil;
+    };
+    if (hrp) {
+        *hrp = [NSString stringWithUTF8String:hrpBuf];
+    }
+    return [NSData dataWithBytes:data length:dataLen];
+}
+
++ (nonnull NSString *)cashAddrEncode:(nonnull NSData *)data hrp:(nonnull NSString *)hrp
+{
+    NSMutableData *result = [[NSMutableData alloc] initWithCapacity:104];
+    cash_encode(result.mutableBytes, hrp.UTF8String, data.bytes, data.length);
+    return [NSString stringWithUTF8String:result.bytes];
+}
+
++ (nullable NSData *)cashAddrDecode:(nonnull NSString *)string hrp:(NSString * _Nullable *)hrp
+{
+    uint8_t data[104];
+    char hrpBuf[29];
+    size_t dataLen;
+    if (1 != cash_decode(hrpBuf, data, &dataLen, string.UTF8String)) {
+        return nil;
+    };
+    if (hrp) {
+        *hrp = [NSString stringWithUTF8String:hrpBuf];
+    }
+    return [NSData dataWithBytes:data length:dataLen];
 }
 
 // MARK: - HDWallet
